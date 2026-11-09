@@ -59,9 +59,26 @@ button:disabled{opacity:.45; cursor:default}
   border-radius:6px; padding:3px 8px; color:var(--surface);
 }
 .tag.solve{background:var(--solve)} .tag.review{background:var(--review)}
-.tag.who{background:var(--ink)}
+.tag.who{background:var(--who)}
+:root{--who:#6d4bc4}
+:root[data-who="shu"]{--who:#6d4bc4}
+:root[data-who="tomoya"]{--who:#d0458f}
+:root[data-who="hiroshi"]{--who:#a8612a}
+@media (prefers-color-scheme: dark){
+  :root[data-who="shu"]:not([data-theme="light"]){--who:#a68bff}
+  :root[data-who="tomoya"]:not([data-theme="light"]){--who:#ff7ab8}
+  :root[data-who="hiroshi"]:not([data-theme="light"]){--who:#e09a5c}
+}
+body{background:color-mix(in srgb, var(--who) 14%, var(--bg)); border-top:6px solid var(--who); transition:background-color .3s ease}
+.stage{box-shadow:0 0 0 3px var(--who)}
+.whoName{position:absolute; top:16px; left:18px; font-weight:700; font-size:clamp(16px,2.6vw,24px); color:var(--surface); background:var(--who); border-radius:10px; padding:4px 14px}
+.row.who .chip[data-who]::before{content:""; display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:0}
+.row.who .chip[data-who="shu"]::before{background:#6d4bc4}
+.row.who .chip[data-who="tomoya"]::before{background:#d0458f}
+.row.who .chip[data-who="hiroshi"]::before{background:#a8612a}
+.row.who .chip[aria-pressed="true"]::before{background:var(--surface)}
 .row.who .chip{font-family:var(--font-ui); font-size:13px}
-.row.who .chip[aria-pressed="true"]{background:var(--ink); border-color:var(--ink); color:var(--surface)}
+.row.who .chip[aria-pressed="true"]{background:var(--who); border-color:var(--who); color:var(--surface); font-weight:700}
 .chip{
   background:var(--surface); border:1px solid var(--line); border-radius:999px;
   padding:5px 11px; font-family:var(--font-num); font-size:12.5px;
@@ -190,6 +207,7 @@ dialog::backdrop{background:rgba(10,16,24,.45)}
 
 <div class="stage" id="stage" role="button" tabindex="0" aria-label="タップで次へ進む">
   <div class="progress" id="progress"></div>
+  <div class="whoName" id="whoName"></div>
   <div class="phase"><span class="tag solve" id="phaseTag">解く</span><span id="qno">第 <b>1</b> 問</span></div>
   <div class="clock" id="clock">1:00</div>
   <div class="state" id="state">タップでスタート</div>
@@ -522,7 +540,7 @@ window.__fbReady = (async () => {
   $('pause').addEventListener('click',togglePause);
   function resetSession(){ laps=[]; started=false; running=false; acc=0; beeped=false; phase='solve'; renderLog(); draw(); }
   $('clear').addEventListener('click',resetSession);
-  function renderWho(){ document.querySelectorAll('[data-who]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.who===who))); }
+  function renderWho(){ document.querySelectorAll('[data-who]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.who===who))); document.documentElement.setAttribute('data-who',who); const u=USERS.find(x=>x.k===who); $('whoName').textContent=u?u.n:''; }
   document.querySelectorAll('[data-who]').forEach(b=>b.addEventListener('click',()=>{
     if(b.dataset.who===who) return;
     who=b.dataset.who; try{ localStorage.setItem('qbt-user',who); }catch(e){}
