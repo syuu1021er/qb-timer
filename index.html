@@ -1,177 +1,148 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>QB問題タイマー</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <style>
-/* Layout: one-screen tool. Two setting rows on top (解く / 解説), a full-width tap stage with the clock, the log and 14-day chart along the bottom. */
+/* Apple HIG style: system font, system colors, grouped background, rounded cards, tinted pill buttons. */
 :root{
-  --bg:#eef1f4;
-  --surface:#ffffff;
-  --ink:#16202b;
-  --muted:#5d6b7a;
-  --line:#d3dae2;
-  --solve:#1f5f8b;
-  --solve-soft:#dce8f1;
-  --review:#2c7a57;
-  --review-soft:#dcefe5;
-  --warn:#b7791f;
-  --over:#c2362f;
-  --over-soft:#f8e1df;
-  --font-num:"Martian Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  --font-ui:"Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --bg:#f2f2f7;            /* systemGroupedBackground */
+  --surface:#ffffff;       /* secondarySystemGroupedBackground */
+  --ink:#000000;           /* label */
+  --muted:rgba(60,60,67,.6);/* secondaryLabel */
+  --line:rgba(60,60,67,.18);/* separator */
+  --fill:rgba(120,120,128,.12); /* tertiarySystemFill */
+  --solve:#007aff;  --solve-soft:#e5f0ff;   /* systemBlue */
+  --review:#34c759; --review-soft:#e3f7e8;  /* systemGreen */
+  --warn:#ff9500;                           /* systemOrange */
+  --over:#ff3b30;   --over-soft:#ffe5e3;    /* systemRed */
+  --font-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Helvetica Neue", "Yu Gothic UI", system-ui, sans-serif;
+  --font-num:-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+  --shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#10161d; --surface:#18212b; --ink:#e6ecf2; --muted:#93a1b0; --line:#2a3644;
-    --solve:#6fb0dd; --solve-soft:#1b3346; --review:#6cc59a; --review-soft:#183428;
-    --warn:#e0a84a; --over:#ff7a6e; --over-soft:#3a1f1e;
+    --bg:#000000; --surface:#1c1c1e; --ink:#ffffff; --muted:rgba(235,235,245,.6); --line:rgba(84,84,88,.6); --fill:rgba(118,118,128,.24);
+    --solve:#0a84ff; --solve-soft:#0a2a4d; --review:#30d158; --review-soft:#0f3319;
+    --warn:#ff9f0a; --over:#ff453a; --over-soft:#3d1512; --shadow:none;
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#10161d; --surface:#18212b; --ink:#e6ecf2; --muted:#93a1b0; --line:#2a3644;
-  --solve:#6fb0dd; --solve-soft:#1b3346; --review:#6cc59a; --review-soft:#183428;
-  --warn:#e0a84a; --over:#ff7a6e; --over-soft:#3a1f1e;
+  --bg:#000000; --surface:#1c1c1e; --ink:#ffffff; --muted:rgba(235,235,245,.6); --line:rgba(84,84,88,.6); --fill:rgba(118,118,128,.24);
+  --solve:#0a84ff; --solve-soft:#0a2a4d; --review:#30d158; --review-soft:#0f3319;
+  --warn:#ff9f0a; --over:#ff453a; --over-soft:#3d1512; --shadow:none;
   color-scheme:dark;
 }
+:root{--who-base:#af52de; --who:var(--who-base)}
 html,body{height:100%}
 body{
-  background:var(--bg); color:var(--ink); font-family:var(--font-ui);
+  background:color-mix(in srgb, var(--who) 7%, var(--bg)); color:var(--ink); font-family:var(--font-ui);
+  -webkit-font-smoothing:antialiased; letter-spacing:-.01em;
   display:flex; flex-direction:column;
   padding-left:max(16px, env(safe-area-inset-left, 0px));
   padding-right:max(16px, env(safe-area-inset-right, 0px));
-  padding-block:12px;
-  gap:10px; box-sizing:border-box;
+  padding-block:14px;
+  gap:12px; box-sizing:border-box;
+  border-top:5px solid var(--who); transition:background-color .3s ease;
   -webkit-user-select:none; user-select:none;
   touch-action:manipulation;
 }
-button{font-family:var(--font-ui); font-size:14px; color:var(--ink); cursor:pointer}
-button:focus-visible{outline:2px solid var(--solve); outline-offset:2px}
-button:disabled{opacity:.45; cursor:default}
+button{font-family:var(--font-ui); font-size:15px; color:var(--ink); cursor:pointer; -webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:3px solid color-mix(in srgb, var(--solve) 50%, transparent); outline-offset:2px}
+button:disabled{opacity:.35; cursor:default}
+button:active:not(:disabled){opacity:.6}
 
-.top{display:flex; flex-wrap:wrap; align-items:flex-start; gap:8px 16px}
-.rows{display:flex; flex-direction:column; gap:6px; min-width:0}
+.top{display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px}
+.rows{display:flex; flex-direction:column; gap:8px; min-width:0}
 .row{display:flex; flex-wrap:wrap; align-items:center; gap:6px}
-.tag{
-  display:inline-block; min-width:3.2em; text-align:center; font-weight:700; font-size:13px;
-  border-radius:6px; padding:3px 8px; color:var(--surface);
-}
+.tag{display:inline-block; min-width:3.2em; text-align:center; font-weight:600; font-size:13px; border-radius:999px; padding:4px 10px; color:#fff}
 .tag.solve{background:var(--solve)} .tag.review{background:var(--review)}
-.tag.who{background:var(--who)}
-:root{--who:#6d4bc4}
-:root[data-who="shu"]{--who:#6d4bc4}
-:root[data-who="tomoya"]{--who:#d0458f}
-:root[data-who="hiroshi"]{--who:#a8612a}
-@media (prefers-color-scheme: dark){
-  :root[data-who="shu"]:not([data-theme="light"]){--who:#a68bff}
-  :root[data-who="tomoya"]:not([data-theme="light"]){--who:#ff7ab8}
-  :root[data-who="hiroshi"]:not([data-theme="light"]){--who:#e09a5c}
-}
-body{background:color-mix(in srgb, var(--who) 14%, var(--bg)); border-top:6px solid var(--who); transition:background-color .3s ease}
-.stage{box-shadow:0 0 0 3px var(--who)}
-.whoName{position:absolute; top:16px; left:18px; font-weight:700; font-size:clamp(16px,2.6vw,24px); color:var(--surface); background:var(--who); border-radius:10px; padding:4px 14px}
-.row.who .chip[data-who]::before{content:""; display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:0}
-.row.who .chip[data-who="shu"]::before{background:#6d4bc4}
-.row.who .chip[data-who="tomoya"]::before{background:#d0458f}
-.row.who .chip[data-who="hiroshi"]::before{background:#a8612a}
-.row.who .chip[aria-pressed="true"]::before{background:var(--surface)}
-.row.who .chip{font-family:var(--font-ui); font-size:13px}
-.row.who .chip[aria-pressed="true"]{background:var(--who); border-color:var(--who); color:var(--surface); font-weight:700}
-.chip{
-  background:var(--surface); border:1px solid var(--line); border-radius:999px;
-  padding:5px 11px; font-family:var(--font-num); font-size:12.5px;
-}
-.row.solve .chip[aria-pressed="true"]{background:var(--solve); border-color:var(--solve); color:var(--surface)}
-.row.review .chip[aria-pressed="true"]{background:var(--review); border-color:var(--review); color:var(--surface)}
-.step{min-width:42px}
-.setting{font-family:var(--font-num); font-size:14px; min-width:4.5ch; text-align:center; font-variant-numeric:tabular-nums}
-.sep{width:1px; height:20px; background:var(--line); margin-inline:2px}
+.chip{background:var(--fill); border:0; border-radius:999px; padding:6px 12px; font-family:var(--font-num); font-size:14px; font-variant-numeric:tabular-nums; font-weight:500}
+.row.solve .chip[aria-pressed="true"]{background:var(--solve); color:#fff}
+.row.review .chip[aria-pressed="true"]{background:var(--review); color:#fff}
+.step{min-width:46px; color:var(--solve)}
+.row.review .step{color:var(--review)}
+.setting{font-family:var(--font-num); font-size:17px; font-weight:600; min-width:4.2ch; text-align:center; font-variant-numeric:tabular-nums}
+.sep{width:1px; height:20px; background:var(--line); margin-inline:4px}
 .spacer{flex:1}
-.actions{display:flex; flex-wrap:wrap; gap:6px; align-items:center}
-.ghost{background:transparent; border:1px solid var(--line); border-radius:8px; padding:6px 12px}
-.ghost[aria-pressed="true"]{background:var(--solve-soft); border-color:var(--solve)}
+.actions{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.ghost{background:var(--fill); border:0; border-radius:10px; padding:8px 14px; color:var(--solve); font-weight:500}
+.ghost[aria-pressed="true"]{background:var(--solve); color:#fff}
 
 .stage{
   flex:1; min-height:230px;
-  background:var(--surface); border:1px solid var(--line); border-radius:18px;
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+  background:var(--surface); border:0; border-radius:24px; box-shadow:var(--shadow), 0 0 0 2px var(--who);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
   position:relative; overflow:hidden; cursor:pointer;
-  transition:background-color .25s ease, border-color .25s ease;
+  transition:background-color .25s ease;
 }
-.stage.review{background:var(--review-soft); border-color:var(--review)}
-.stage.over{background:var(--over-soft); border-color:var(--over)}
-.progress{position:absolute; left:0; top:0; height:6px; width:100%; transform-origin:left center; background:var(--solve)}
+.stage.review{background:var(--review-soft)}
+.stage.over{background:var(--over-soft)}
+.progress{position:absolute; left:0; top:0; height:5px; width:100%; transform-origin:left center; background:var(--solve); transition:background-color .25s}
 .stage.review .progress{background:var(--review)}
 .stage.warn .progress{background:var(--warn)}
 .stage.over .progress{background:var(--over)}
-.phase{display:flex; align-items:center; gap:10px; font-size:15px; color:var(--muted)}
-.phase .tag{font-size:16px; padding:4px 14px}
+.whoName{position:absolute; top:18px; left:20px; font-weight:600; font-size:clamp(15px,2.2vw,20px); color:#fff; background:var(--who); border-radius:999px; padding:5px 14px}
+.phase{display:flex; align-items:center; gap:10px; font-size:17px; color:var(--muted)}
+.phase .tag{font-size:15px; padding:5px 14px}
 .phase b{font-family:var(--font-num); font-weight:600; color:var(--ink)}
-.clock{
-  font-family:var(--font-num); font-weight:600; font-variant-numeric:tabular-nums;
-  font-size:clamp(64px, 18vw, 190px); line-height:1; letter-spacing:-.02em;
-}
+.clock{font-family:var(--font-num); font-weight:200; font-variant-numeric:tabular-nums; font-size:clamp(72px, 20vw, 210px); line-height:1; letter-spacing:-.03em}
 .stage.review .clock{color:var(--review)}
 .stage.warn .clock{color:var(--warn)}
 .stage.over .clock{color:var(--over)}
-.state{font-size:14px; color:var(--muted); min-height:1.4em; text-align:center}
-.stage.over .state{color:var(--over); font-weight:700}
-.hint{position:absolute; bottom:10px; font-size:12px; color:var(--muted); text-align:center; padding-inline:16px}
+.state{font-size:15px; color:var(--muted); min-height:1.4em; text-align:center}
+.stage.over .state{color:var(--over); font-weight:600}
+.hint{position:absolute; bottom:12px; font-size:12px; color:var(--muted); text-align:center; padding-inline:16px}
 
-.log{display:flex; flex-direction:column; gap:8px; flex-shrink:0}
-.stats{display:flex; flex-wrap:wrap; gap:4px 18px; font-size:13px; color:var(--muted); align-items:baseline}
+.log{display:flex; flex-direction:column; gap:10px; flex-shrink:0}
+.stats{display:flex; flex-wrap:wrap; gap:6px 18px; font-size:13px; color:var(--muted); align-items:baseline; background:var(--surface); border-radius:16px; padding:12px 16px; box-shadow:var(--shadow)}
 .stats b{font-family:var(--font-num); color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums}
-.stats .big b{font-size:18px}
+.stats .big b{font-size:20px}
 .stats small{font-size:12px; margin-left:4px}
 .stats .o b{color:var(--over)}
 .sync{margin-left:auto; font-size:12px; color:var(--muted)}
 .sync.ok::before{content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--review); margin-right:6px; vertical-align:1px}
 .laps{display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; min-height:30px}
-.lap{
-  flex:none; font-family:var(--font-num); font-size:12px; font-variant-numeric:tabular-nums;
-  background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:4px 8px;
-  display:flex; gap:6px; align-items:baseline;
-}
+.lap{flex:none; font-family:var(--font-num); font-size:13px; font-variant-numeric:tabular-nums; background:var(--surface); border:0; border-radius:10px; padding:5px 10px; display:flex; gap:8px; align-items:baseline; box-shadow:var(--shadow)}
 .lap .n{color:var(--muted)}
 .lap .s{color:var(--solve)} .lap .r{color:var(--review)}
 .lap .s.o{color:var(--over); font-weight:600}
-.empty{font-size:12px; color:var(--muted); align-self:center}
+.empty{font-size:13px; color:var(--muted); align-self:center}
 .days{display:flex; align-items:flex-end; gap:6px; overflow-x:auto; padding-top:2px}
 .days .dl{font-size:12px; color:var(--muted); margin-right:4px; align-self:center; white-space:nowrap}
 .day{flex:none; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:38px}
-.day i{display:block; width:18px; background:var(--solve); border-radius:3px 3px 0 0; min-height:2px}
-.day.today i{background:var(--warn)}
+.day i{display:block; width:16px; background:var(--solve); border-radius:5px 5px 2px 2px; min-height:3px}
+.day.today i{background:var(--who)}
 .day b{font-family:var(--font-num); font-size:12px; font-weight:600; font-variant-numeric:tabular-nums}
 .day small{font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums}
 
 @media (max-width:560px){ .hint{display:none} .sep{display:none} }
-dialog{border:1px solid var(--line); border-radius:14px; background:var(--surface); color:var(--ink); padding:0; width:min(640px, calc(100vw - 32px)); max-height:calc(100dvh - 48px); -webkit-user-select:text; user-select:text}
-dialog::backdrop{background:rgba(10,16,24,.45)}
-.dlg{padding:18px 20px 20px; overflow:auto; max-height:calc(100dvh - 50px)}
-.dlg h2{font-size:18px; margin:0 0 10px; display:flex; justify-content:space-between; align-items:center; gap:8px}
-.dlg h3{font-size:15px; margin:16px 0 6px; color:var(--solve)}
-.dlg p,.dlg li{font-size:14px; line-height:1.7; margin:4px 0}
+dialog{border:0; border-radius:22px; background:var(--surface); color:var(--ink); padding:0; width:min(620px, calc(100vw - 32px)); max-height:calc(100dvh - 48px); box-shadow:0 20px 60px rgba(0,0,0,.25); -webkit-user-select:text; user-select:text}
+dialog::backdrop{background:rgba(0,0,0,.3); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px)}
+.dlg{padding:22px 22px 24px; overflow:auto; max-height:calc(100dvh - 50px)}
+.dlg h2{font-size:22px; font-weight:700; letter-spacing:-.02em; margin:0 0 12px; display:flex; justify-content:space-between; align-items:center; gap:8px}
+.dlg h3{font-size:17px; font-weight:600; margin:18px 0 6px}
+.dlg p,.dlg li{font-size:15px; line-height:1.65; margin:4px 0}
 .dlg ol,.dlg ul{padding-left:1.3em; margin:4px 0}
-.dlg kbd{font-family:var(--font-num); font-size:12px; border:1px solid var(--line); border-radius:4px; padding:0 5px}
-.dlg textarea{width:100%; box-sizing:border-box; height:110px; font-family:var(--font-num); font-size:11.5px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); padding:8px}
-.dlg .btns{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px}
-.dlg .pri{background:var(--solve); color:var(--surface); border:0; border-radius:8px; padding:8px 14px; font-weight:700}
+.dlg kbd{font-family:var(--font-num); font-size:12px; background:var(--fill); border-radius:5px; padding:1px 6px}
+.dlg .pri{background:var(--solve); color:#fff; border:0; border-radius:12px; padding:10px 16px; font-weight:600}
 .dlg .msg{font-size:13px; color:var(--review); min-height:1.3em; margin-top:6px}
 .dlg .msg.err{color:var(--over)}
-.x{background:transparent; border:1px solid var(--line); border-radius:8px; padding:4px 10px}
-@media (prefers-reduced-motion: reduce){ .stage{transition:none} }
+.pick{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; margin:8px 0 4px}
+.pick button{position:relative; border:0; background:var(--fill); border-radius:16px; padding:20px 14px; font-size:18px; font-weight:600; color:var(--ink); text-align:left; display:flex; align-items:center; gap:12px}
+.pick button::before{content:""; width:28px; height:28px; border-radius:50%; background:var(--c); flex:none}
+.pick button.last{background:var(--c); color:#fff}
+.pick button.last::before{background:rgba(255,255,255,.9)}
+.pick button small{position:absolute; top:7px; right:12px; font-size:11px; font-weight:500; opacity:.9}
+.adduser{display:flex; gap:8px; margin-top:16px; flex-wrap:wrap}
+.adduser input{flex:1; min-width:160px; font-size:17px; padding:10px 12px; border:0; border-radius:12px; background:var(--fill); color:var(--ink); font-family:var(--font-ui)}
+.adduser input:focus{outline:2px solid var(--solve)}
+.manage{margin-top:18px; font-size:13px; color:var(--muted)}
+.manage button{font-size:13px; margin:4px 0 0 6px; color:var(--over)}
+.x{background:var(--fill); border:0; border-radius:999px; padding:6px 12px; font-size:14px; color:var(--solve); font-weight:500}
 </style>
 
 <div class="top" id="bar">
   <div class="rows">
-    <div class="row who" role="group" aria-label="ユーザー">
-      <span class="tag who">ユーザー</span>
-      <button class="chip" data-who="shu">しゅういちろう</button>
-      <button class="chip" data-who="tomoya">ともや</button>
-      <button class="chip" data-who="hiroshi">ひろし</button>
-    </div>
     <div class="row solve" role="group" aria-label="解く時間">
       <span class="tag solve">解く</span>
       <button class="chip step" id="sMinus" aria-label="解く時間を10秒短く">−10</button>
@@ -201,7 +172,6 @@ dialog::backdrop{background:rgba(10,16,24,.45)}
     <button class="ghost" id="sound" aria-pressed="false">音 オフ</button>
     <button class="ghost" id="pause">一時停止</button>
     <button class="ghost" id="clear">この回をリセット</button>
-    <button class="ghost" id="moveBtn">記録の引き継ぎ</button>
     <button class="ghost" id="helpBtn">使い方</button>
   </div>
 </div>
@@ -271,10 +241,18 @@ window.__fbReady = (async () => {
   } catch (e) { console.warn('Firebase に接続できません', e); return null; }
 })();
 </script>
+<dialog id="pickDlg"><div class="dlg">
+<h2>だれが使いますか？</h2>
+<div class="pick" id="pickList"></div>
+<div class="adduser"><input id="newName" maxlength="16" placeholder="新しいユーザーの名前"><button class="pri" id="addUser">＋ 追加</button></div>
+<div class="msg" id="pickMsg"></div>
+<div class="manage" id="manage"></div>
+</div></dialog>
 <dialog id="helpDlg"><div class="dlg">
 <h2>使い方<button class="x" data-close>閉じる</button></h2>
-<h3>1. ユーザーを選ぶ</h3>
-<p>一番上の「ユーザー」で自分の名前（しゅういちろう・ともや・ひろし）を押します。記録・設定・グラフは人ごとに別々です。次に開いたときは、その端末で最後に選んだ人になっています。</p>
+<h3>1. ユーザーを選ぶ・追加する</h3>
+<p>サイトを開くと「だれが使いますか？」が出るので、自分の名前を押します。この端末で前回使った人には「この端末で前回」と付いています。使っている途中は切り替えられません。別の人に替えるときは、ページを開き直して（再読み込みして）選び直してください。</p>
+<p>新しい人は、同じ画面で名前を入れて「＋ 追加」。色は自動で決まり、ほかの端末にも同じユーザー一覧が同期されます。一覧から消しても記録は消えません。記録・設定・グラフは人ごとに別々です。</p>
 <h3>2. 時間を決める</h3>
 <p>「解く」は1問を解く目標時間、「解説」は解説を読む目標時間です。<kbd>−10</kbd><kbd>+10</kbd>で10秒ずつ、右のボタンで一発設定できます。</p>
 <h3>3. 計る</h3>
@@ -297,23 +275,8 @@ window.__fbReady = (async () => {
 </ul>
 <h3>5. PCとiPadで同期する</h3>
 <p>何もしなくても、ネットにつながっていればPC・iPad・スマホのどれでも自動で同期されます。どの端末でも自分の名前を選ぶだけでOK。右下に「PCとiPadで同期中」と出ていれば同期できています。</p>
-<h3>6. 記録の引き継ぎ</h3>
-<p>「記録の引き継ぎ」で、全員分の記録を文字にして書き出し、別の場所（claude.ai版 ⇄ GitHub Pages版）に読み込めます。同じ日の記録は問題数の多いほうが残ります。</p>
 <h3>こまかいこと</h3>
 <ul><li>画面は計測中スリープしにくくなります（対応ブラウザのみ）。</li><li>同期していないときは、そのブラウザだけに保存されます。履歴・サイトデータを消すと記録も消えます。</li></ul>
-</div></dialog>
-<dialog id="moveDlg"><div class="dlg">
-<h2>記録の引き継ぎ<button class="x" data-close>閉じる</button></h2>
-<h3>書き出す（引き継ぎ元で）</h3>
-<p>3人分の記録と設定をまとめた文字を作ります。全部コピーして、引き継ぎ先に貼ってください。</p>
-<div class="btns"><button class="pri" id="expBtn">書き出す</button><button class="x" id="copyBtn">コピー</button></div>
-<textarea id="expTxt" readonly placeholder="「書き出す」を押すとここに出ます"></textarea>
-<div class="msg" id="expMsg"></div>
-<h3>読み込む（引き継ぎ先で）</h3>
-<p>読み込んだ記録は、同期中ならほかの端末にも反映されます。</p>
-<textarea id="impTxt" placeholder="書き出した文字をここに貼り付け"></textarea>
-<div class="btns"><button class="pri" id="impBtn">読み込む</button></div>
-<div class="msg" id="impMsg"></div>
 </div></dialog>
 <script>
 (function(){
@@ -322,9 +285,15 @@ window.__fbReady = (async () => {
   const presets=[...document.querySelectorAll('[data-sec]')];
 
   // ---------- users ----------
-  const USERS=[{k:'shu',n:'しゅういちろう'},{k:'tomoya',n:'ともや'},{k:'hiroshi',n:'ひろし'}];
+  const PALETTE=['#af52de','#ff2d55','#a2845e','#30b0c7','#5856d6','#00c7be','#ff9500','#8e8e93','#32ade6','#ffcc00'];
+  const OLDC={'#6d4bc4':'#af52de','#d0458f':'#ff2d55','#a8612a':'#a2845e','#0b7285':'#30b0c7','#66800a':'#5856d6','#9c36b5':'#00c7be','#e8590c':'#ff9500','#495057':'#8e8e93','#1971c2':'#32ade6','#c2255c':'#ffcc00'};
+  const cc=c=>OLDC[c]||c||PALETTE[0];
+  const DEFAULT_USERS=[{k:'shu',n:'しゅういちろう',c:'#af52de'},{k:'tomoya',n:'ともや',c:'#ff2d55'},{k:'hiroshi',n:'ひろし',c:'#a2845e'}];
+  let USERS=DEFAULT_USERS.slice();
+  try{ const l=JSON.parse(localStorage.getItem('qbt-users')||'null'); if(Array.isArray(l) && l.length) USERS=l; }catch(e){}
+  const liveUsers=()=>USERS.filter(u=>!u.del);
   let who='shu';
-  try{ const w=localStorage.getItem('qbt-user'); if(USERS.some(u=>u.k===w)) who=w; }catch(e){}
+  try{ const w=localStorage.getItem('qbt-user'); if(liveUsers().some(u=>u.k===w)) who=w; else if(liveUsers()[0]) who=liveUsers()[0].k; }catch(e){}
   // しゅういちろう keeps the original storage so earlier records stay his
   const lk=base=> who==='shu' ? base : base+'-'+who;
   const docName=()=> who==='shu' ? 'timer' : 'timer-'+who;
@@ -390,6 +359,29 @@ window.__fbReady = (async () => {
     },()=>{ if(my===gen) setSync('同期できません（この端末に保存）'); }));
   }
 
+  let usersRef=null, usersUnsub=null;
+  function saveUsers(){
+    try{ localStorage.setItem('qbt-users', JSON.stringify(USERS)); }catch(e){}
+    if(usersRef) queueWrite(usersRef, {list:USERS});
+  }
+  function watchUsers(){
+    if(usersUnsub){ try{ usersUnsub(); }catch(e){} }
+    const ref=db.doc('data/users/'+uid+'/profiles'); let first=true;
+    usersUnsub=ref.onSnapshot(snap=>{
+      if(snap.exists){
+        const l=(snap.data()||{}).list;
+        if(Array.isArray(l) && l.length){
+          // keep users added on this device before the list arrived
+          const rk=new Set(l.map(u=>u.k)); const extra=USERS.filter(u=>!rk.has(u.k));
+          USERS=l.concat(extra); try{ localStorage.setItem('qbt-users', JSON.stringify(USERS)); }catch(e){}
+          usersRef=ref; if(extra.length) queueWrite(ref,{list:USERS});
+          renderWho(); if(pickDlg.open) renderPick();
+        }
+      } else if(first && !snap.metadata.fromCache){ usersRef=ref; queueWrite(ref,{list:USERS}); }
+      if(!snap.metadata.fromCache) first=false;
+    },()=>{});
+  }
+
   async function connect(){
     if(window.claude && window.claude.use){
       try{
@@ -397,7 +389,7 @@ window.__fbReady = (async () => {
         if(!d || !u) return;
         const id=await u.id(); if(!id) return;
         db=d; uid=id;
-        attach();
+        attach(); watchUsers();
       }catch(e){}
       return;
     }
@@ -423,7 +415,7 @@ window.__fbReady = (async () => {
         try{ localStorage.removeItem('qbt-sync'); }catch(e){}
       }catch(e){ console.warn(e); }
     }
-    uid=SHARED; attach();
+    uid=SHARED; attach(); watchUsers();
   }
 
   // ---------- timer ----------
@@ -558,77 +550,65 @@ window.__fbReady = (async () => {
   $('pause').addEventListener('click',togglePause);
   function resetSession(){ laps=[]; started=false; running=false; acc=0; beeped=false; phase='solve'; renderLog(); draw(); }
   $('clear').addEventListener('click',resetSession);
-  function renderWho(){ document.querySelectorAll('[data-who]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.who===who))); document.documentElement.setAttribute('data-who',who); const u=USERS.find(x=>x.k===who); $('whoName').textContent=u?u.n:''; }
-  document.querySelectorAll('[data-who]').forEach(b=>b.addEventListener('click',()=>{
-    if(b.dataset.who===who) return;
-    who=b.dataset.who; try{ localStorage.setItem('qbt-user',who); }catch(e){}
-    resetSession(); loadLocal(); renderWho(); renderSetting(); renderDays(); draw(); attach();
-  }));
+  const pickDlg=$('pickDlg');
+  const colorOf=k=>{ const u=USERS.find(x=>x.k===k); return cc(u&&u.c); };
+  function renderWho(){
+    if(!liveUsers().some(u=>u.k===who) && liveUsers()[0]) switchTo(liveUsers()[0].k, true);
+    document.documentElement.style.setProperty('--who-base', colorOf(who));
+    const u=USERS.find(x=>x.k===who); $('whoName').textContent=u?u.n:'';
+  }
+  function switchTo(k, quiet){
+    if(k!==who){
+      who=k; resetSession(); loadLocal(); renderSetting(); renderDays(); draw(); attach();
+    }
+    try{ localStorage.setItem('qbt-user',who); }catch(e){}
+    if(!quiet) renderWho();
+  }
+  function renderPick(){
+    let last=''; try{ last=localStorage.getItem('qbt-user')||''; }catch(e){}
+    const list=$('pickList'); list.innerHTML='';
+    liveUsers().forEach(u=>{
+      const b=document.createElement('button'); b.style.setProperty('--c', cc(u.c));
+      b.textContent=u.n; if(u.k===last){ b.classList.add('last'); const sm=document.createElement('small'); sm.textContent='この端末で前回'; b.appendChild(sm); }
+      b.addEventListener('click',()=>{ picked=true; switchTo(u.k); pickDlg.close(); });
+      list.appendChild(b);
+    });
+    const m=$('manage'); m.textContent='';
+    if(liveUsers().length>1){
+      m.append('ユーザーを一覧から消す：');
+      liveUsers().forEach(u=>{ const x=document.createElement('button'); x.className='x'; x.textContent=u.n+' ×';
+        x.addEventListener('click',()=>{ if(!confirm(u.n+' を一覧から消しますか？（記録は消えません。同じ名前で追加し直しても元の記録には戻りません）')) return;
+          u.del=true; saveUsers(); renderWho(); renderPick(); });
+        m.appendChild(x); });
+    }
+  }
+  function openPick(){ renderPick(); $('pickMsg').textContent=''; try{ pickDlg.showModal(); }catch(e){ pickDlg.setAttribute('open',''); } try{ document.activeElement && document.activeElement.blur(); }catch(e){} }
+  let picked=false;
+  pickDlg.addEventListener('cancel', e=>e.preventDefault());
+  pickDlg.addEventListener('close', ()=>{ if(!picked) setTimeout(()=>{ try{ pickDlg.showModal(); }catch(e){} }, 0); });
+  $('addUser').addEventListener('click', ()=>{
+    const n=$('newName').value.trim(), msg=$('pickMsg');
+    if(!n){ msg.className='msg err'; msg.textContent='名前を入れてください'; return; }
+    if(liveUsers().some(u=>u.n===n)){ msg.className='msg err'; msg.textContent='同じ名前のユーザーがいます'; return; }
+    const used=new Set(liveUsers().map(u=>cc(u.c)));
+    const c=PALETTE.find(x=>!used.has(x)) || PALETTE[USERS.length%PALETTE.length];
+    const k='u'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    USERS.push({k, n, c}); saveUsers();
+    $('newName').value=''; msg.className='msg'; msg.textContent=n+' を追加しました';
+    renderWho(); renderPick();
+  });
+  $('newName').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); $('addUser').click(); } });
   document.querySelectorAll('#bar button').forEach(b=>b.addEventListener('mouseup',()=>b.blur()));
 
   renderWho(); renderSetting(); renderLog(); renderDays(); draw();
+  setTimeout(openPick, 0);
   setInterval(renderDays, 60000);
   (function loop(){ draw(); requestAnimationFrame(loop); })();
   // ---------- help & transfer ----------
-  const helpDlg=$('helpDlg'), moveDlg=$('moveDlg');
+  const helpDlg=$('helpDlg');
   const openDlg=d=>{ try{ d.showModal(); }catch(e){ d.setAttribute('open',''); } };
   $('helpBtn').addEventListener('click',()=>openDlg(helpDlg));
-  $('moveBtn').addEventListener('click',()=>openDlg(moveDlg));
   document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
-  const lkFor=(u,base)=> u==='shu' ? base : base+'-'+u;
-  const docFor=u=> u==='shu' ? 'timer' : 'timer-'+u;
-  const normDay=v=>({solved:+v.solved||0, solveSec:+v.solveSec||0, reviewSec:+v.reviewSec||0, reviewed:(v.reviewed!=null?+v.reviewed:(+v.solved||0))});
-  async function gather(u){
-    let c=null, d={};
-    try{ c=JSON.parse(localStorage.getItem(lkFor(u,'qbt-cfg'))||'null'); }catch(e){}
-    try{ const h=JSON.parse(localStorage.getItem(lkFor(u,'qbt-days'))||'null'); if(h) for(const k in h) d[k]=normDay(h[k]); }catch(e){}
-    if(db && uid){
-      try{
-        const home=db.doc('data/users/'+uid+'/'+docFor(u));
-        const hs=await home.get(); if(hs.exists){ const v=hs.data(); c={solve:v.solve, review:v.review, sound:!!v.sound}; }
-        const qs=await home.collection('days').get();
-        qs.docs.forEach(x=>{ const v=normDay(x.data()); if(!d[x.id] || v.solved>=d[x.id].solved) d[x.id]=v; });
-      }catch(e){}
-    }
-    if(u===who){ for(const k in days){ const v=normDay(days[k]); if(!d[k] || v.solved>d[k].solved) d[k]=v; } c={solve:cfg.solve, review:cfg.review, sound:cfg.sound}; }
-    return {cfg:c, days:d};
-  }
-  $('expBtn').addEventListener('click', async ()=>{
-    const msg=$('expMsg'); msg.className='msg'; msg.textContent='集めています…';
-    const out={app:'qbt', v:1, at:new Date().toISOString(), users:{}};
-    let n=0;
-    for(const u of USERS){ out.users[u.k]=await gather(u.k); n+=Object.values(out.users[u.k].days).reduce((a,x)=>a+x.solved,0); }
-    const t=JSON.stringify(out); $('expTxt').value=t;
-    msg.textContent='書き出しました（全員で '+n+' 問ぶん）。「コピー」を押すか、全部選んでコピーしてください。';
-  });
-  $('copyBtn').addEventListener('click', async ()=>{
-    const ta=$('expTxt'), msg=$('expMsg'); if(!ta.value) return;
-    try{ await navigator.clipboard.writeText(ta.value); msg.className='msg'; msg.textContent='コピーしました。'; }
-    catch(e){ ta.focus(); ta.select(); try{ document.execCommand('copy'); msg.className='msg'; msg.textContent='コピーしました。'; }catch(_){ msg.className='msg err'; msg.textContent='自動でコピーできませんでした。選択された文字を手でコピーしてください。'; } }
-  });
-  $('impBtn').addEventListener('click', async ()=>{
-    const msg=$('impMsg'); msg.className='msg';
-    let data; try{ data=JSON.parse($('impTxt').value.trim()); }catch(e){ data=null; }
-    if(!data || data.app!=='qbt' || !data.users){ msg.className='msg err'; msg.textContent='読み込めません。書き出した文字を全部貼り付けてください。'; return; }
-    const report=[];
-    for(const u of USERS){
-      const inc=data.users[u.k]; if(!inc) continue;
-      const cur=await gather(u.k);
-      const merged=Object.assign({}, cur.days); let add=0;
-      for(const k in (inc.days||{})){ if(!/^\d{4}-\d{2}-\d{2}$/.test(k)) continue; const v=normDay(inc.days[k]); if(!merged[k] || v.solved>merged[k].solved){ add+=v.solved-(merged[k]?merged[k].solved:0); merged[k]=v; } }
-      const c=cur.cfg || inc.cfg;
-      try{ localStorage.setItem(lkFor(u.k,'qbt-days'), JSON.stringify(merged)); if(c) localStorage.setItem(lkFor(u.k,'qbt-cfg'), JSON.stringify(c)); }catch(e){}
-      if(db && uid){
-        const home=db.doc('data/users/'+uid+'/'+docFor(u.k)); const col=home.collection('days');
-        if(c) queueWrite(home,{solve:c.solve||60, review:c.review||120, sound:!!c.sound});
-        for(const k in merged) queueWrite(col.doc(k), Object.assign({date:k}, merged[k]));
-      }
-      report.push(u.n+' +'+add+'問');
-    }
-    loadLocal(); renderSetting(); renderDays(); draw(); attach();
-    msg.textContent='読み込みました：'+report.join('・')+(db&&uid?'（同期先にも保存しました）':'（この端末に保存しました）');
-  });
-
   connect();
 })();
 </script>
