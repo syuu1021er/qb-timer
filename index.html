@@ -103,7 +103,7 @@ button:disabled{opacity:.45; cursor:default}
 .stage.over .state{color:var(--over); font-weight:700}
 .hint{position:absolute; bottom:10px; font-size:12px; color:var(--muted); text-align:center; padding-inline:16px}
 
-.log{display:flex; flex-direction:column; gap:8px}
+.log{display:flex; flex-direction:column; gap:8px; flex-shrink:0}
 .stats{display:flex; flex-wrap:wrap; gap:4px 18px; font-size:13px; color:var(--muted); align-items:baseline}
 .stats b{font-family:var(--font-num); color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums}
 .stats .big b{font-size:18px}
@@ -129,6 +129,20 @@ button:disabled{opacity:.45; cursor:default}
 .day small{font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums}
 
 @media (max-width:560px){ .hint{display:none} .sep{display:none} }
+dialog{border:1px solid var(--line); border-radius:14px; background:var(--surface); color:var(--ink); padding:0; width:min(640px, calc(100vw - 32px)); max-height:calc(100dvh - 48px); -webkit-user-select:text; user-select:text}
+dialog::backdrop{background:rgba(10,16,24,.45)}
+.dlg{padding:18px 20px 20px; overflow:auto; max-height:calc(100dvh - 50px)}
+.dlg h2{font-size:18px; margin:0 0 10px; display:flex; justify-content:space-between; align-items:center; gap:8px}
+.dlg h3{font-size:15px; margin:16px 0 6px; color:var(--solve)}
+.dlg p,.dlg li{font-size:14px; line-height:1.7; margin:4px 0}
+.dlg ol,.dlg ul{padding-left:1.3em; margin:4px 0}
+.dlg kbd{font-family:var(--font-num); font-size:12px; border:1px solid var(--line); border-radius:4px; padding:0 5px}
+.dlg textarea{width:100%; box-sizing:border-box; height:110px; font-family:var(--font-num); font-size:11.5px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); padding:8px}
+.dlg .btns{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px}
+.dlg .pri{background:var(--solve); color:var(--surface); border:0; border-radius:8px; padding:8px 14px; font-weight:700}
+.dlg .msg{font-size:13px; color:var(--review); min-height:1.3em; margin-top:6px}
+.dlg .msg.err{color:var(--over)}
+.x{background:transparent; border:1px solid var(--line); border-radius:8px; padding:4px 10px}
 @media (prefers-reduced-motion: reduce){ .stage{transition:none} }
 </style>
 
@@ -169,6 +183,8 @@ button:disabled{opacity:.45; cursor:default}
     <button class="ghost" id="sound" aria-pressed="false">音 オフ</button>
     <button class="ghost" id="pause">一時停止</button>
     <button class="ghost" id="clear">この回をリセット</button>
+    <button class="ghost" id="moveBtn">記録の引き継ぎ</button>
+    <button class="ghost" id="helpBtn">使い方</button>
   </div>
 </div>
 
@@ -219,11 +235,13 @@ window.__fbReady = (async () => {
       path: ref.path,
       set: body => F.setDoc(ref, body),
       collection: name => mkCol(F.collection(ref, name)),
+      get: async () => { const x = await F.getDoc(ref); return { exists: x.exists(), data: () => x.data() }; },
       onSnapshot: (next, err) => F.onSnapshot(ref,
         s => next({ exists: s.exists(), data: () => s.data(), metadata: s.metadata }), err)
     });
     const mkCol = ref => ({
       doc: id => mkDoc(F.doc(ref, id)),
+      get: async () => { const x = await F.getDocs(ref); return { docs: x.docs.map(d => ({ id: d.id, data: () => d.data() })) }; },
       onSnapshot: (next, err) => F.onSnapshot(ref,
         s => next({ docs: s.docs.map(d => ({ id: d.id, data: () => d.data() })), metadata: s.metadata }), err)
     });
@@ -231,6 +249,47 @@ window.__fbReady = (async () => {
   } catch (e) { console.warn('Firebase に接続できません', e); return null; }
 })();
 </script>
+<dialog id="helpDlg"><div class="dlg">
+<h2>使い方<button class="x" data-close>閉じる</button></h2>
+<h3>1. ユーザーを選ぶ</h3>
+<p>一番上の「ユーザー」で自分の名前（しゅういちろう・ともや・ひろし）を押します。記録・設定・グラフは人ごとに別々です。次に開いたときは、その端末で最後に選んだ人になっています。</p>
+<h3>2. 時間を決める</h3>
+<p>「解く」は1問を解く目標時間、「解説」は解説を読む目標時間です。<kbd>−10</kbd><kbd>+10</kbd>で10秒ずつ、右のボタンで一発設定できます。</p>
+<h3>3. 計る</h3>
+<ol>
+<li>真ん中の大きい画面をタップ（PCはスペースキー）でスタート。</li>
+<li>解き終わったらタップ → 「解説」に切り替わります。</li>
+<li>解説を読み終わったらタップ → 次の問題の「解く」が始まります。</li>
+</ol>
+<p>残り10秒で黄色、時間を過ぎると赤になり「+0:12」のように超過時間を数えます（止まりません）。「音 オン」にすると時間切れで音が鳴ります。休憩は「一時停止」（PCは <kbd>P</kbd>）。</p>
+<h3>4. 記録を見る</h3>
+<ul>
+<li><b>今日 ○問・今日の演習時間</b>：その日の合計（解く＋解説）。</li>
+<li><b>この回</b>：ページを開いてから（または「この回をリセット」してから）の問題数と時間。</li>
+<li><b>今日の解く平均・解説平均</b>：その日に解いた全問題の平均。</li>
+<li><b>解く時間オーバー</b>：この回で目標時間を超えた問題の数。</li>
+<li>下の小さな箱は1問ごとの「解く／解説」の時間、棒グラフは直近14日の問題数です（棒にカーソルを合わせると演習時間も出ます）。</li>
+</ul>
+<h3>5. PCとiPadで同期する</h3>
+<p>右下の「同期の合言葉を設定 ›」を押し、1台目は表示された合言葉のままOK（メモしておく）。2台目以降は同じ合言葉を入れます。「PCとiPadで同期中」と出ればOK。合言葉はパスワード代わりなので人に教えないでください（3人で同じ合言葉を使っても、記録はユーザーごとに分かれます）。</p>
+<h3>6. 記録の引き継ぎ</h3>
+<p>「記録の引き継ぎ」で、全員分の記録を文字にして書き出し、別の場所（claude.ai版 ⇄ GitHub Pages版、別の合言葉）に読み込めます。同じ日の記録は問題数の多いほうが残ります。</p>
+<h3>こまかいこと</h3>
+<ul><li>画面は計測中スリープしにくくなります（対応ブラウザのみ）。</li><li>同期していないときは、そのブラウザだけに保存されます。履歴・サイトデータを消すと記録も消えます。</li></ul>
+</div></dialog>
+<dialog id="moveDlg"><div class="dlg">
+<h2>記録の引き継ぎ<button class="x" data-close>閉じる</button></h2>
+<h3>書き出す（引き継ぎ元で）</h3>
+<p>3人分の記録と設定をまとめた文字を作ります。全部コピーして、引き継ぎ先に貼ってください。</p>
+<div class="btns"><button class="pri" id="expBtn">書き出す</button><button class="x" id="copyBtn">コピー</button></div>
+<textarea id="expTxt" readonly placeholder="「書き出す」を押すとここに出ます"></textarea>
+<div class="msg" id="expMsg"></div>
+<h3>読み込む（引き継ぎ先で）</h3>
+<p>先に同期の合言葉を設定してから読み込むと、PCとiPadにも反映されます。</p>
+<textarea id="impTxt" placeholder="書き出した文字をここに貼り付け"></textarea>
+<div class="btns"><button class="pri" id="impBtn">読み込む</button></div>
+<div class="msg" id="impMsg"></div>
+</div></dialog>
 <script>
 (function(){
   const $ = id => document.getElementById(id);
@@ -446,6 +505,7 @@ window.__fbReady = (async () => {
   stage.addEventListener('click', tap);
   document.addEventListener('keydown', ev=>{
     if(ev.repeat) return;
+    if(document.querySelector('dialog[open]') || /^(TEXTAREA|INPUT)$/.test((ev.target||{}).tagName||'')) return;
     if(ev.code==='Space' || ev.code==='Enter'){ ev.preventDefault(); tap(); }
     else if(ev.key==='p' || ev.key==='P'){ togglePause(); }
   });
@@ -468,6 +528,66 @@ window.__fbReady = (async () => {
   renderWho(); renderSetting(); renderLog(); renderDays(); draw();
   setInterval(renderDays, 60000);
   (function loop(){ draw(); requestAnimationFrame(loop); })();
+  // ---------- help & transfer ----------
+  const helpDlg=$('helpDlg'), moveDlg=$('moveDlg');
+  const openDlg=d=>{ try{ d.showModal(); }catch(e){ d.setAttribute('open',''); } };
+  $('helpBtn').addEventListener('click',()=>openDlg(helpDlg));
+  $('moveBtn').addEventListener('click',()=>openDlg(moveDlg));
+  document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
+  const lkFor=(u,base)=> u==='shu' ? base : base+'-'+u;
+  const docFor=u=> u==='shu' ? 'timer' : 'timer-'+u;
+  const normDay=v=>({solved:+v.solved||0, solveSec:+v.solveSec||0, reviewSec:+v.reviewSec||0, reviewed:(v.reviewed!=null?+v.reviewed:(+v.solved||0))});
+  async function gather(u){
+    let c=null, d={};
+    try{ c=JSON.parse(localStorage.getItem(lkFor(u,'qbt-cfg'))||'null'); }catch(e){}
+    try{ const h=JSON.parse(localStorage.getItem(lkFor(u,'qbt-days'))||'null'); if(h) for(const k in h) d[k]=normDay(h[k]); }catch(e){}
+    if(db && uid){
+      try{
+        const home=db.doc('data/users/'+uid+'/'+docFor(u));
+        const hs=await home.get(); if(hs.exists){ const v=hs.data(); c={solve:v.solve, review:v.review, sound:!!v.sound}; }
+        const qs=await home.collection('days').get();
+        qs.docs.forEach(x=>{ const v=normDay(x.data()); if(!d[x.id] || v.solved>=d[x.id].solved) d[x.id]=v; });
+      }catch(e){}
+    }
+    if(u===who){ for(const k in days){ const v=normDay(days[k]); if(!d[k] || v.solved>d[k].solved) d[k]=v; } c={solve:cfg.solve, review:cfg.review, sound:cfg.sound}; }
+    return {cfg:c, days:d};
+  }
+  $('expBtn').addEventListener('click', async ()=>{
+    const msg=$('expMsg'); msg.className='msg'; msg.textContent='集めています…';
+    const out={app:'qbt', v:1, at:new Date().toISOString(), users:{}};
+    let n=0;
+    for(const u of USERS){ out.users[u.k]=await gather(u.k); n+=Object.values(out.users[u.k].days).reduce((a,x)=>a+x.solved,0); }
+    const t=JSON.stringify(out); $('expTxt').value=t;
+    msg.textContent='書き出しました（全員で '+n+' 問ぶん）。「コピー」を押すか、全部選んでコピーしてください。';
+  });
+  $('copyBtn').addEventListener('click', async ()=>{
+    const ta=$('expTxt'), msg=$('expMsg'); if(!ta.value) return;
+    try{ await navigator.clipboard.writeText(ta.value); msg.className='msg'; msg.textContent='コピーしました。'; }
+    catch(e){ ta.focus(); ta.select(); try{ document.execCommand('copy'); msg.className='msg'; msg.textContent='コピーしました。'; }catch(_){ msg.className='msg err'; msg.textContent='自動でコピーできませんでした。選択された文字を手でコピーしてください。'; } }
+  });
+  $('impBtn').addEventListener('click', async ()=>{
+    const msg=$('impMsg'); msg.className='msg';
+    let data; try{ data=JSON.parse($('impTxt').value.trim()); }catch(e){ data=null; }
+    if(!data || data.app!=='qbt' || !data.users){ msg.className='msg err'; msg.textContent='読み込めません。書き出した文字を全部貼り付けてください。'; return; }
+    const report=[];
+    for(const u of USERS){
+      const inc=data.users[u.k]; if(!inc) continue;
+      const cur=await gather(u.k);
+      const merged=Object.assign({}, cur.days); let add=0;
+      for(const k in (inc.days||{})){ if(!/^\d{4}-\d{2}-\d{2}$/.test(k)) continue; const v=normDay(inc.days[k]); if(!merged[k] || v.solved>merged[k].solved){ add+=v.solved-(merged[k]?merged[k].solved:0); merged[k]=v; } }
+      const c=cur.cfg || inc.cfg;
+      try{ localStorage.setItem(lkFor(u.k,'qbt-days'), JSON.stringify(merged)); if(c) localStorage.setItem(lkFor(u.k,'qbt-cfg'), JSON.stringify(c)); }catch(e){}
+      if(db && uid){
+        const home=db.doc('data/users/'+uid+'/'+docFor(u.k)); const col=home.collection('days');
+        if(c) queueWrite(home,{solve:c.solve||60, review:c.review||120, sound:!!c.sound});
+        for(const k in merged) queueWrite(col.doc(k), Object.assign({date:k}, merged[k]));
+      }
+      report.push(u.n+' +'+add+'問');
+    }
+    loadLocal(); renderSetting(); renderDays(); draw(); attach();
+    msg.textContent='読み込みました：'+report.join('・')+(db&&uid?'（同期先にも保存しました）':'（この端末に保存しました）');
+  });
+
   connect();
 })();
 </script>
