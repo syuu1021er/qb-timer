@@ -221,6 +221,8 @@ dialog::backdrop{background:rgba(10,16,24,.45)}
     <span>この回 <b id="sCount">0</b> 問・<b id="tSess">0:00</b></span>
     <span>今日の解く平均 <b id="sAvgS">--:--</b></span>
     <span>今日の解説平均 <b id="sAvgR">--:--</b></span>
+    <span>今日の1問あたり <b id="sAvgT">--:--</b></span>
+    <span class="big">1時間で <b id="sPerH">--</b> 問ペース</span>
     <span class="o">解く時間オーバー <b id="sOver">0</b></span>
     <span class="sync" id="sync">この端末に保存</span>
   </div>
@@ -285,6 +287,8 @@ window.__fbReady = (async () => {
 <li><b>今日 ○問・今日の演習時間</b>：その日の合計（解く＋解説）。</li>
 <li><b>この回</b>：ページを開いてから（または「この回をリセット」してから）の問題数と時間。</li>
 <li><b>今日の解く平均・解説平均</b>：その日に解いた全問題の平均。</li>
+<li><b>今日の1問あたり</b>：解く平均＋解説平均。1問を解いて解説まで読むのにかかる時間です。</li>
+<li><b>1時間で ○問ペース</b>：今日の1問あたりの時間で1時間続けたら何問進むかの予測（60分 ÷ 1問あたり）。</li>
 <li><b>解く時間オーバー</b>：この回で目標時間を超えた問題の数。</li>
 <li>下の小さな箱は1問ごとの「解く／解説」の時間、棒グラフは直近14日の問題数です（棒にカーソルを合わせると演習時間も出ます）。</li>
 </ul>
@@ -495,6 +499,9 @@ window.__fbReady = (async () => {
     const tv=days[dayKey(t)]||{};
     $('sAvgS').textContent= tv.solved ? fmt((tv.solveSec||0)/tv.solved) : '--:--';
     $('sAvgR').textContent= tv.reviewed ? fmt((tv.reviewSec||0)/tv.reviewed) : '--:--';
+    const per = tv.solved && tv.reviewed ? (tv.solveSec||0)/tv.solved + (tv.reviewSec||0)/tv.reviewed : 0;
+    $('sAvgT').textContent= per ? fmt(per) : '--:--';
+    $('sPerH').textContent= per ? (3600/per).toFixed(1).replace(/\.0$/,'') : '--';
     box.innerHTML='<span class="dl">直近14日</span>'+items.map(x=>{
       const v=days[x.k]; const tip=(x.d.getMonth()+1)+'/'+x.d.getDate()+' '+x.n+'問'+(v&&v.solved?'・演習 '+fmtHM((v.solveSec||0)+(v.reviewSec||0))+'（解く '+fmtHM(v.solveSec)+'・解説 '+fmtHM(v.reviewSec)+'）':'');
       return '<div class="day'+(x.today?' today':'')+'" title="'+tip+'"><b>'+x.n+'</b><i style="height:'+Math.round(4+28*x.n/max)+'px"></i><small>'+(x.d.getMonth()+1)+'/'+x.d.getDate()+'</small></div>';
