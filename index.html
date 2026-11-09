@@ -1,0 +1,475 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>QB問題タイマー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: one-screen tool. Two setting rows on top (解く / 解説), a full-width tap stage with the clock, the log and 14-day chart along the bottom. */
+:root{
+  --bg:#eef1f4;
+  --surface:#ffffff;
+  --ink:#16202b;
+  --muted:#5d6b7a;
+  --line:#d3dae2;
+  --solve:#1f5f8b;
+  --solve-soft:#dce8f1;
+  --review:#2c7a57;
+  --review-soft:#dcefe5;
+  --warn:#b7791f;
+  --over:#c2362f;
+  --over-soft:#f8e1df;
+  --font-num:"Martian Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-ui:"Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10161d; --surface:#18212b; --ink:#e6ecf2; --muted:#93a1b0; --line:#2a3644;
+    --solve:#6fb0dd; --solve-soft:#1b3346; --review:#6cc59a; --review-soft:#183428;
+    --warn:#e0a84a; --over:#ff7a6e; --over-soft:#3a1f1e;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10161d; --surface:#18212b; --ink:#e6ecf2; --muted:#93a1b0; --line:#2a3644;
+  --solve:#6fb0dd; --solve-soft:#1b3346; --review:#6cc59a; --review-soft:#183428;
+  --warn:#e0a84a; --over:#ff7a6e; --over-soft:#3a1f1e;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font-ui);
+  display:flex; flex-direction:column;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:12px;
+  gap:10px; box-sizing:border-box;
+  -webkit-user-select:none; user-select:none;
+  touch-action:manipulation;
+}
+button{font-family:var(--font-ui); font-size:14px; color:var(--ink); cursor:pointer}
+button:focus-visible{outline:2px solid var(--solve); outline-offset:2px}
+button:disabled{opacity:.45; cursor:default}
+
+.top{display:flex; flex-wrap:wrap; align-items:flex-start; gap:8px 16px}
+.rows{display:flex; flex-direction:column; gap:6px; min-width:0}
+.row{display:flex; flex-wrap:wrap; align-items:center; gap:6px}
+.tag{
+  display:inline-block; min-width:3.2em; text-align:center; font-weight:700; font-size:13px;
+  border-radius:6px; padding:3px 8px; color:var(--surface);
+}
+.tag.solve{background:var(--solve)} .tag.review{background:var(--review)}
+.tag.who{background:var(--ink)}
+.row.who .chip{font-family:var(--font-ui); font-size:13px}
+.row.who .chip[aria-pressed="true"]{background:var(--ink); border-color:var(--ink); color:var(--surface)}
+.chip{
+  background:var(--surface); border:1px solid var(--line); border-radius:999px;
+  padding:5px 11px; font-family:var(--font-num); font-size:12.5px;
+}
+.row.solve .chip[aria-pressed="true"]{background:var(--solve); border-color:var(--solve); color:var(--surface)}
+.row.review .chip[aria-pressed="true"]{background:var(--review); border-color:var(--review); color:var(--surface)}
+.step{min-width:42px}
+.setting{font-family:var(--font-num); font-size:14px; min-width:4.5ch; text-align:center; font-variant-numeric:tabular-nums}
+.sep{width:1px; height:20px; background:var(--line); margin-inline:2px}
+.spacer{flex:1}
+.actions{display:flex; flex-wrap:wrap; gap:6px; align-items:center}
+.ghost{background:transparent; border:1px solid var(--line); border-radius:8px; padding:6px 12px}
+.ghost[aria-pressed="true"]{background:var(--solve-soft); border-color:var(--solve)}
+
+.stage{
+  flex:1; min-height:230px;
+  background:var(--surface); border:1px solid var(--line); border-radius:18px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+  position:relative; overflow:hidden; cursor:pointer;
+  transition:background-color .25s ease, border-color .25s ease;
+}
+.stage.review{background:var(--review-soft); border-color:var(--review)}
+.stage.over{background:var(--over-soft); border-color:var(--over)}
+.progress{position:absolute; left:0; top:0; height:6px; width:100%; transform-origin:left center; background:var(--solve)}
+.stage.review .progress{background:var(--review)}
+.stage.warn .progress{background:var(--warn)}
+.stage.over .progress{background:var(--over)}
+.phase{display:flex; align-items:center; gap:10px; font-size:15px; color:var(--muted)}
+.phase .tag{font-size:16px; padding:4px 14px}
+.phase b{font-family:var(--font-num); font-weight:600; color:var(--ink)}
+.clock{
+  font-family:var(--font-num); font-weight:600; font-variant-numeric:tabular-nums;
+  font-size:clamp(64px, 18vw, 190px); line-height:1; letter-spacing:-.02em;
+}
+.stage.review .clock{color:var(--review)}
+.stage.warn .clock{color:var(--warn)}
+.stage.over .clock{color:var(--over)}
+.state{font-size:14px; color:var(--muted); min-height:1.4em; text-align:center}
+.stage.over .state{color:var(--over); font-weight:700}
+.hint{position:absolute; bottom:10px; font-size:12px; color:var(--muted); text-align:center; padding-inline:16px}
+
+.log{display:flex; flex-direction:column; gap:8px}
+.stats{display:flex; flex-wrap:wrap; gap:4px 18px; font-size:13px; color:var(--muted); align-items:baseline}
+.stats b{font-family:var(--font-num); color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums}
+.stats .big b{font-size:18px}
+.stats .o b{color:var(--over)}
+.sync{margin-left:auto; font-size:12px; color:var(--muted)}
+.sync.ok::before{content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--review); margin-right:6px; vertical-align:1px}
+.laps{display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; min-height:30px}
+.lap{
+  flex:none; font-family:var(--font-num); font-size:12px; font-variant-numeric:tabular-nums;
+  background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:4px 8px;
+  display:flex; gap:6px; align-items:baseline;
+}
+.lap .n{color:var(--muted)}
+.lap .s{color:var(--solve)} .lap .r{color:var(--review)}
+.lap .s.o{color:var(--over); font-weight:600}
+.empty{font-size:12px; color:var(--muted); align-self:center}
+.days{display:flex; align-items:flex-end; gap:6px; overflow-x:auto; padding-top:2px}
+.days .dl{font-size:12px; color:var(--muted); margin-right:4px; align-self:center; white-space:nowrap}
+.day{flex:none; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:38px}
+.day i{display:block; width:18px; background:var(--solve); border-radius:3px 3px 0 0; min-height:2px}
+.day.today i{background:var(--warn)}
+.day b{font-family:var(--font-num); font-size:12px; font-weight:600; font-variant-numeric:tabular-nums}
+.day small{font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums}
+
+@media (max-width:560px){ .hint{display:none} .sep{display:none} }
+@media (prefers-reduced-motion: reduce){ .stage{transition:none} }
+</style>
+
+<div class="top" id="bar">
+  <div class="rows">
+    <div class="row who" role="group" aria-label="ユーザー">
+      <span class="tag who">ユーザー</span>
+      <button class="chip" data-who="shu">しゅういちろう</button>
+      <button class="chip" data-who="tomoya">ともや</button>
+      <button class="chip" data-who="hiroshi">ひろし</button>
+    </div>
+    <div class="row solve" role="group" aria-label="解く時間">
+      <span class="tag solve">解く</span>
+      <button class="chip step" id="sMinus" aria-label="解く時間を10秒短く">−10</button>
+      <span class="setting" id="sSet">1:00</span>
+      <button class="chip step" id="sPlus" aria-label="解く時間を10秒長く">+10</button>
+      <span class="sep"></span>
+      <button class="chip" data-k="solve" data-sec="30">0:30</button>
+      <button class="chip" data-k="solve" data-sec="60">1:00</button>
+      <button class="chip" data-k="solve" data-sec="90">1:30</button>
+      <button class="chip" data-k="solve" data-sec="120">2:00</button>
+      <button class="chip" data-k="solve" data-sec="180">3:00</button>
+    </div>
+    <div class="row review" role="group" aria-label="解説を見る時間">
+      <span class="tag review">解説</span>
+      <button class="chip step" id="rMinus" aria-label="解説の時間を10秒短く">−10</button>
+      <span class="setting" id="rSet">2:00</span>
+      <button class="chip step" id="rPlus" aria-label="解説の時間を10秒長く">+10</button>
+      <span class="sep"></span>
+      <button class="chip" data-k="review" data-sec="60">1:00</button>
+      <button class="chip" data-k="review" data-sec="120">2:00</button>
+      <button class="chip" data-k="review" data-sec="180">3:00</button>
+      <button class="chip" data-k="review" data-sec="300">5:00</button>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="actions">
+    <button class="ghost" id="sound" aria-pressed="false">音 オフ</button>
+    <button class="ghost" id="pause">一時停止</button>
+    <button class="ghost" id="clear">この回をリセット</button>
+  </div>
+</div>
+
+<div class="stage" id="stage" role="button" tabindex="0" aria-label="タップで次へ進む">
+  <div class="progress" id="progress"></div>
+  <div class="phase"><span class="tag solve" id="phaseTag">解く</span><span id="qno">第 <b>1</b> 問</span></div>
+  <div class="clock" id="clock">1:00</div>
+  <div class="state" id="state">タップでスタート</div>
+  <div class="hint">タップ（スペースキー）で 解く → 解説 → 次の問題 と進みます。P で一時停止</div>
+</div>
+
+<div class="log">
+  <div class="stats">
+    <span class="big">今日 <b id="sToday">0</b> 問</span>
+    <span class="big">今日の演習時間 <b id="tToday">0分</b></span>
+    <span>この回 <b id="sCount">0</b> 問・<b id="tSess">0:00</b></span>
+    <span>今日の解く平均 <b id="sAvgS">--:--</b></span>
+    <span>今日の解説平均 <b id="sAvgR">--:--</b></span>
+    <span class="o">解く時間オーバー <b id="sOver">0</b></span>
+    <span class="sync" id="sync">この端末に保存</span>
+  </div>
+  <div class="laps" id="laps"><span class="empty">ここに1問ごとの「解く／解説」の時間が並びます</span></div>
+  <div class="days" id="days"></div>
+</div>
+
+<script>
+/* ===== GitHub Pages 用の同期設定 =====
+   Firebase の「ウェブアプリを追加」で表示される firebaseConfig の中身を、下の { } の中に貼り付けてください。
+   空のままなら、記録はこの端末のブラウザだけに保存されます。 */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAzr2Y2HCCkMqLJ0ir8t_zCx_mGf1bOquo",
+  authDomain: "timer-5dcb8.firebaseapp.com",
+  projectId: "timer-5dcb8",
+  storageBucket: "timer-5dcb8.firebasestorage.app",
+  messagingSenderId: "409584238516",
+  appId: "1:409584238516:web:fbf817cc2d349054f43ce1",
+  measurementId: "G-BYQD1B5MGL"
+};
+/* ===================================== */
+window.__fbReady = (async () => {
+  if (window.claude || !FIREBASE_CONFIG.projectId) return null;
+  try {
+    const V = 'https://www.gstatic.com/firebasejs/10.12.2/';
+    const { initializeApp } = await import(V + 'firebase-app.js');
+    const F = await import(V + 'firebase-firestore.js');
+    const fs = F.getFirestore(initializeApp(FIREBASE_CONFIG));
+    const mkDoc = ref => ({
+      path: ref.path,
+      set: body => F.setDoc(ref, body),
+      collection: name => mkCol(F.collection(ref, name)),
+      onSnapshot: (next, err) => F.onSnapshot(ref,
+        s => next({ exists: s.exists(), data: () => s.data(), metadata: s.metadata }), err)
+    });
+    const mkCol = ref => ({
+      doc: id => mkDoc(F.doc(ref, id)),
+      onSnapshot: (next, err) => F.onSnapshot(ref,
+        s => next({ docs: s.docs.map(d => ({ id: d.id, data: () => d.data() })), metadata: s.metadata }), err)
+    });
+    return { doc: path => mkDoc(F.doc(fs, path)) };
+  } catch (e) { console.warn('Firebase に接続できません', e); return null; }
+})();
+</script>
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const stage=$('stage'), clock=$('clock'), stateEl=$('state'), progress=$('progress'), phaseTag=$('phaseTag');
+  const presets=[...document.querySelectorAll('[data-sec]')];
+
+  // ---------- users ----------
+  const USERS=[{k:'shu',n:'しゅういちろう'},{k:'tomoya',n:'ともや'},{k:'hiroshi',n:'ひろし'}];
+  let who='shu';
+  try{ const w=localStorage.getItem('qbt-user'); if(USERS.some(u=>u.k===w)) who=w; }catch(e){}
+  // しゅういちろう keeps the original storage so earlier records stay his
+  const lk=base=> who==='shu' ? base : base+'-'+who;
+  const docName=()=> who==='shu' ? 'timer' : 'timer-'+who;
+
+  // ---------- settings & local fallback ----------
+  const cfg={solve:60, review:120, sound:false};
+  let days={};           // date -> {solved, solveSec, reviewSec, reviewed}
+  function loadLocal(){
+    cfg.solve=60; cfg.review=120; cfg.sound=false; days={};
+    try{
+      const s=JSON.parse(localStorage.getItem(lk('qbt-cfg'))||'null');
+      if(s){ if(s.solve>=10&&s.solve<=900) cfg.solve=s.solve; if(s.review>=10&&s.review<=900) cfg.review=s.review; cfg.sound=!!s.sound; }
+      else if(who==='shu'){ const d=parseInt(localStorage.getItem('qbt-duration'),10); if(d>=10&&d<=600) cfg.solve=d; cfg.sound=localStorage.getItem('qbt-sound')==='1'; }
+    }catch(e){}
+    try{
+      const h=JSON.parse(localStorage.getItem(lk('qbt-days'))||'null');
+      if(h) days=h;
+      else if(who==='shu'){ const old=JSON.parse(localStorage.getItem('qbt-history')||'{}')||{}; for(const k in old) days[k]={solved:old[k], solveSec:0, reviewSec:0}; }
+      for(const k in days){ if(days[k] && days[k].reviewed==null) days[k].reviewed=days[k].solved||0; }
+    }catch(e){ days={}; }
+  }
+  loadLocal();
+
+  // ---------- sync (db) ----------
+  let db=null, uid=null, cfgRef=null, daysCol=null, synced=false, unsubs=[], gen=0;
+  const writeQueue={};   // path -> promise chain (one write at a time per doc)
+  function queueWrite(ref, body){
+    const p=(writeQueue[ref.path]||Promise.resolve()).then(()=>ref.set(body)).catch(()=>{});
+    writeQueue[ref.path]=p; return p;
+  }
+  function saveLocal(){ try{ localStorage.setItem(lk('qbt-cfg'),JSON.stringify(cfg)); localStorage.setItem(lk('qbt-days'),JSON.stringify(days)); }catch(e){} }
+  function saveCfg(){ saveLocal(); if(synced && cfgRef) queueWrite(cfgRef,{solve:cfg.solve, review:cfg.review, sound:cfg.sound}); }
+  function saveDay(k){ saveLocal(); if(synced && daysCol) queueWrite(daysCol.doc(k), Object.assign({date:k}, days[k])); }
+  function setSync(t,ok){ const s=$('sync'); s.textContent=t; s.classList.toggle('ok',!!ok); }
+
+  function attach(){
+    unsubs.forEach(f=>{ try{ f(); }catch(e){} }); unsubs=[];
+    synced=false; cfgRef=null; daysCol=null;
+    if(!db || !uid){ setSync('この端末に保存'); return; }
+    const my=++gen;
+    const home=db.doc('data/users/'+uid+'/'+docName());
+    const col=home.collection('days');
+    let firstCfg=true, firstDays=true;
+    setSync('同期の準備中…');
+    unsubs.push(home.onSnapshot(snap=>{
+      if(my!==gen) return;
+      if(snap.exists){ const v=snap.data(); if(v.solve) cfg.solve=v.solve; if(v.review) cfg.review=v.review; cfg.sound=!!v.sound; saveLocal(); renderSetting(); }
+      else if(firstCfg && !snap.metadata.fromCache){ queueWrite(home,{solve:cfg.solve, review:cfg.review, sound:cfg.sound}); }
+      if(!snap.metadata.fromCache) firstCfg=false;
+    },()=>{}));
+    unsubs.push(col.onSnapshot(snap=>{
+      if(my!==gen) return;
+      const remote={};
+      snap.docs.forEach(doc=>{ const v=doc.data(); remote[doc.id]={solved:v.solved||0, solveSec:v.solveSec||0, reviewSec:v.reviewSec||0, reviewed:(v.reviewed!=null?v.reviewed:(v.solved||0))}; });
+      if(firstDays && !snap.metadata.fromCache){
+        // carry over anything this device recorded before syncing was on
+        for(const k in days){ const l=days[k], r=remote[k];
+          if(!r || l.solved>r.solved){ remote[k]=l; queueWrite(col.doc(k), Object.assign({date:k}, l)); } }
+        firstDays=false; synced=true; cfgRef=home; daysCol=col;
+        setSync('PCとiPadで同期中', true);
+      }
+      if(!firstDays){ days=remote; saveLocal(); renderDays(); }
+    },()=>{ if(my===gen) setSync('同期できません（この端末に保存）'); }));
+  }
+
+  async function connect(){
+    if(window.claude && window.claude.use){
+      try{
+        const [d,u]=await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+        if(!d || !u) return;
+        const id=await u.id(); if(!id) return;
+        db=d; uid=id;
+        attach();
+      }catch(e){}
+      return;
+    }
+    // GitHub Pages：Firebase ＋ 合言葉で同期
+    const fdb = await (window.__fbReady || Promise.resolve(null));
+    if(!fdb) return;
+    db=fdb;
+    const s=$('sync'); s.style.cursor='pointer'; s.title='タップで同期の合言葉を設定';
+    s.addEventListener('click', setCode);
+    let code=''; try{ code=localStorage.getItem('qbt-sync')||''; }catch(e){}
+    if(code.length>=12){ uid=code; attach(); } else setSync('同期の合言葉を設定 ›');
+  }
+  function setCode(){
+    let cur=''; try{ cur=localStorage.getItem('qbt-sync')||''; }catch(e){}
+    const sug = cur || Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>'abcdefghjkmnpqrstuvwxyz23456789'[b%31]).join('');
+    const v = prompt('同期の合言葉（12文字以上）\n1台目はこのままOK。2台目以降は1台目と同じ合言葉を入力してください。', sug);
+    if(v==null) return;
+    const c=v.trim();
+    if(c.length<12 || /[\/\s]/.test(c)){ alert('12文字以上で、スペースや / を含まない合言葉にしてください'); return; }
+    try{ localStorage.setItem('qbt-sync', c); }catch(e){}
+    uid=c; attach();
+  }
+
+  // ---------- timer ----------
+  let phase='solve', started=false, running=false, startTs=0, acc=0, beeped=false;
+  let laps=[]; let audio=null; let wakeLock=null;
+  const now=()=>performance.now();
+  const elapsed=()=> running ? acc + (now()-startTs)/1000 : acc;
+  const fmt=s=>{ s=Math.max(0,Math.floor(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
+  const fmtHM=s=>{ s=Math.max(0,Math.floor(s)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return h? h+'時間'+m+'分' : m+'分'; };
+  const fmtHMS=s=>{ s=Math.max(0,Math.floor(s)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60; return (h? h+':'+String(m).padStart(2,'0') : m)+':'+String(x).padStart(2,'0'); };
+  const dur=()=> phase==='solve'?cfg.solve:cfg.review;
+  const dayKey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const today=()=>{ const k=dayKey(new Date()); if(!days[k]) days[k]={solved:0, solveSec:0, reviewSec:0, reviewed:0}; return k; };
+
+  function renderSetting(){
+    $('sSet').textContent=fmt(cfg.solve); $('rSet').textContent=fmt(cfg.review);
+    presets.forEach(b=>b.setAttribute('aria-pressed', String(+b.dataset.sec===cfg[b.dataset.k])));
+    const s=$('sound'); s.setAttribute('aria-pressed',String(cfg.sound)); s.textContent= cfg.sound?'音 オン':'音 オフ';
+  }
+  function beep(){
+    if(!cfg.sound) return;
+    try{
+      audio = audio || new (window.AudioContext||window.webkitAudioContext)();
+      const o=audio.createOscillator(), g=audio.createGain();
+      o.frequency.value= phase==='solve'?880:660; o.connect(g); g.connect(audio.destination);
+      const t=audio.currentTime; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.25,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+.35);
+      o.start(t); o.stop(t+.4);
+    }catch(e){}
+  }
+  async function keepAwake(){ try{ if('wakeLock' in navigator && !wakeLock){ wakeLock=await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release',()=>{wakeLock=null}); } }catch(e){} }
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && running) keepAwake(); });
+
+  function draw(){
+    const D=dur(), e=elapsed(), rem=D-e, over=e>=D;
+    clock.textContent = over ? '+'+fmt(e-D) : fmt(Math.ceil(rem));
+    stage.classList.toggle('review', phase==='review');
+    stage.classList.toggle('over', over && started);
+    stage.classList.toggle('warn', !over && started && rem<=10);
+    progress.style.transform='scaleX('+(over?1:Math.max(0,rem/D))+')';
+    if(over && started && running && !beeped){ beeped=true; beep(); }
+    phaseTag.textContent= phase==='solve'?'解く':'解説';
+    phaseTag.className='tag '+phase;
+    const n = phase==='solve' ? laps.length+1 : laps.length;
+    $('qno').innerHTML='第 <b>'+n+'</b> 問';
+    if(!started) stateEl.textContent='タップでスタート';
+    else if(!running) stateEl.textContent='一時停止中。タップで再開';
+    else if(over) stateEl.textContent= phase==='solve'?'解く時間オーバー':'解説の時間オーバー';
+    else stateEl.textContent= phase==='solve'?'タップで解説へ':'タップで次の問題へ';
+    $('pause').textContent= running ? '一時停止' : '再開';
+    $('pause').disabled = !started;
+    // 演習時間：終わった段階の合計＋いま計っている段階
+    const cur = started ? e : 0;
+    const sess = laps.reduce((a,l)=>a+l.s+(l.r||0),0) + cur;
+    const tv = days[dayKey(new Date())];
+    const todaySec = (tv ? (tv.solveSec||0)+(tv.reviewSec||0) : 0) + cur;
+    $('tSess').textContent = fmtHMS(sess);
+    $('tToday').textContent = fmtHM(todaySec);
+  }
+
+  function renderLog(){
+    const n=laps.length;
+    const sTot=laps.reduce((a,l)=>a+l.s,0);
+    const rDone=laps.filter(l=>l.r!=null);
+    const rTot=rDone.reduce((a,l)=>a+l.r,0);
+    $('sCount').textContent=n;
+    $('sOver').textContent=laps.filter(l=>l.so).length;
+    const box=$('laps');
+    if(!n){ box.innerHTML='<span class="empty">ここに1問ごとの「解く／解説」の時間が並びます</span>'; return; }
+    box.innerHTML = laps.map((l,i)=>'<span class="lap"><span class="n">'+(i+1)+'</span><span class="s'+(l.so?' o':'')+'">'+fmt(l.s)+'</span><span class="r">'+(l.r==null?'…':fmt(l.r))+'</span></span>').reverse().join('');
+  }
+
+  function renderDays(){
+    const box=$('days'); const t=new Date(); const items=[]; let max=1;
+    for(let i=13;i>=0;i--){ const d=new Date(t); d.setDate(t.getDate()-i); const k=dayKey(d); const n=(days[k]&&days[k].solved)||0; max=Math.max(max,n); items.push({d,n,k,today:i===0}); }
+    $('sToday').textContent=items[items.length-1].n;
+    const tv=days[dayKey(t)]||{};
+    $('sAvgS').textContent= tv.solved ? fmt((tv.solveSec||0)/tv.solved) : '--:--';
+    $('sAvgR').textContent= tv.reviewed ? fmt((tv.reviewSec||0)/tv.reviewed) : '--:--';
+    box.innerHTML='<span class="dl">直近14日</span>'+items.map(x=>{
+      const v=days[x.k]; const tip=(x.d.getMonth()+1)+'/'+x.d.getDate()+' '+x.n+'問'+(v&&v.solved?'・演習 '+fmtHM((v.solveSec||0)+(v.reviewSec||0))+'（解く '+fmtHM(v.solveSec)+'・解説 '+fmtHM(v.reviewSec)+'）':'');
+      return '<div class="day'+(x.today?' today':'')+'" title="'+tip+'"><b>'+x.n+'</b><i style="height:'+Math.round(4+28*x.n/max)+'px"></i><small>'+(x.d.getMonth()+1)+'/'+x.d.getDate()+'</small></div>';
+    }).join('');
+  }
+
+  function restart(){ acc=0; startTs=now(); running=true; beeped=false; }
+
+  function tap(){
+    if(audio && audio.state==='suspended') audio.resume();
+    if(cfg.sound && !audio){ try{ audio=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+    if(!started){ started=true; phase='solve'; restart(); keepAwake(); }
+    else if(!running){ startTs=now(); running=true; keepAwake(); }
+    else if(phase==='solve'){
+      const t=elapsed(); laps.push({s:t, so:t>cfg.solve, r:null});
+      const k=today(); days[k].solved+=1; days[k].solveSec+=Math.round(t); saveDay(k);
+      phase='review'; restart(); renderLog(); renderDays();
+    } else {
+      const t=elapsed(); const last=laps[laps.length-1]; if(last) last.r=t;
+      const k=today(); days[k].reviewSec+=Math.round(t); days[k].reviewed=(days[k].reviewed||0)+1; saveDay(k);
+      phase='solve'; restart(); renderLog(); renderDays();
+    }
+    draw();
+  }
+  function togglePause(){
+    if(!started) return;
+    if(running){ acc=elapsed(); running=false; } else { startTs=now(); running=true; keepAwake(); }
+    draw();
+  }
+
+  stage.addEventListener('click', tap);
+  document.addEventListener('keydown', ev=>{
+    if(ev.repeat) return;
+    if(ev.code==='Space' || ev.code==='Enter'){ ev.preventDefault(); tap(); }
+    else if(ev.key==='p' || ev.key==='P'){ togglePause(); }
+  });
+  presets.forEach(b=>b.addEventListener('click',()=>{ cfg[b.dataset.k]=+b.dataset.sec; saveCfg(); renderSetting(); draw(); }));
+  const adj=(k,d)=>()=>{ cfg[k]=Math.min(900,Math.max(10,cfg[k]+d)); saveCfg(); renderSetting(); draw(); };
+  $('sMinus').addEventListener('click',adj('solve',-10)); $('sPlus').addEventListener('click',adj('solve',10));
+  $('rMinus').addEventListener('click',adj('review',-10)); $('rPlus').addEventListener('click',adj('review',10));
+  $('sound').addEventListener('click',()=>{ cfg.sound=!cfg.sound; saveCfg(); renderSetting(); if(cfg.sound){ try{ audio=audio||new (window.AudioContext||window.webkitAudioContext)(); audio.resume&&audio.resume(); }catch(e){} beep(); } });
+  $('pause').addEventListener('click',togglePause);
+  function resetSession(){ laps=[]; started=false; running=false; acc=0; beeped=false; phase='solve'; renderLog(); draw(); }
+  $('clear').addEventListener('click',resetSession);
+  function renderWho(){ document.querySelectorAll('[data-who]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.who===who))); }
+  document.querySelectorAll('[data-who]').forEach(b=>b.addEventListener('click',()=>{
+    if(b.dataset.who===who) return;
+    who=b.dataset.who; try{ localStorage.setItem('qbt-user',who); }catch(e){}
+    resetSession(); loadLocal(); renderWho(); renderSetting(); renderDays(); draw(); attach();
+  }));
+  document.querySelectorAll('#bar button').forEach(b=>b.addEventListener('mouseup',()=>b.blur()));
+
+  renderWho(); renderSetting(); renderLog(); renderDays(); draw();
+  setInterval(renderDays, 60000);
+  (function loop(){ draw(); requestAnimationFrame(loop); })();
+  connect();
+})();
+</script>
+
+</body></html>
