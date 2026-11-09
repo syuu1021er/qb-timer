@@ -271,9 +271,9 @@ window.__fbReady = (async () => {
 <li>下の小さな箱は1問ごとの「解く／解説」の時間、棒グラフは直近14日の問題数です（棒にカーソルを合わせると演習時間も出ます）。</li>
 </ul>
 <h3>5. PCとiPadで同期する</h3>
-<p>右下の「同期の合言葉を設定 ›」を押し、1台目は表示された合言葉のままOK（メモしておく）。2台目以降は同じ合言葉を入れます。「PCとiPadで同期中」と出ればOK。合言葉はパスワード代わりなので人に教えないでください（3人で同じ合言葉を使っても、記録はユーザーごとに分かれます）。</p>
+<p>何もしなくても、ネットにつながっていればPC・iPad・スマホのどれでも自動で同期されます。どの端末でも自分の名前を選ぶだけでOK。右下に「PCとiPadで同期中」と出ていれば同期できています。</p>
 <h3>6. 記録の引き継ぎ</h3>
-<p>「記録の引き継ぎ」で、全員分の記録を文字にして書き出し、別の場所（claude.ai版 ⇄ GitHub Pages版、別の合言葉）に読み込めます。同じ日の記録は問題数の多いほうが残ります。</p>
+<p>「記録の引き継ぎ」で、全員分の記録を文字にして書き出し、別の場所（claude.ai版 ⇄ GitHub Pages版）に読み込めます。同じ日の記録は問題数の多いほうが残ります。</p>
 <h3>こまかいこと</h3>
 <ul><li>画面は計測中スリープしにくくなります（対応ブラウザのみ）。</li><li>同期していないときは、そのブラウザだけに保存されます。履歴・サイトデータを消すと記録も消えます。</li></ul>
 </div></dialog>
@@ -285,7 +285,7 @@ window.__fbReady = (async () => {
 <textarea id="expTxt" readonly placeholder="「書き出す」を押すとここに出ます"></textarea>
 <div class="msg" id="expMsg"></div>
 <h3>読み込む（引き継ぎ先で）</h3>
-<p>先に同期の合言葉を設定してから読み込むと、PCとiPadにも反映されます。</p>
+<p>読み込んだ記録は、同期中ならほかの端末にも反映されます。</p>
 <textarea id="impTxt" placeholder="書き出した文字をここに貼り付け"></textarea>
 <div class="btns"><button class="pri" id="impBtn">読み込む</button></div>
 <div class="msg" id="impMsg"></div>
@@ -376,24 +376,29 @@ window.__fbReady = (async () => {
       }catch(e){}
       return;
     }
-    // GitHub Pages：Firebase ＋ 合言葉で同期
+    // GitHub Pages：Firebase で同期（全員共通の保存先。ユーザーを選ぶだけ）
     const fdb = await (window.__fbReady || Promise.resolve(null));
     if(!fdb) return;
     db=fdb;
-    const s=$('sync'); s.style.cursor='pointer'; s.title='タップで同期の合言葉を設定';
-    s.addEventListener('click', setCode);
-    let code=''; try{ code=localStorage.getItem('qbt-sync')||''; }catch(e){}
-    if(code.length>=12){ uid=code; attach(); } else setSync('同期の合言葉を設定 ›');
-  }
-  function setCode(){
-    let cur=''; try{ cur=localStorage.getItem('qbt-sync')||''; }catch(e){}
-    const sug = cur || Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>'abcdefghjkmnpqrstuvwxyz23456789'[b%31]).join('');
-    const v = prompt('同期の合言葉（12文字以上）\n1台目はこのままOK。2台目以降は1台目と同じ合言葉を入力してください。', sug);
-    if(v==null) return;
-    const c=v.trim();
-    if(c.length<12 || /[\/\s]/.test(c)){ alert('12文字以上で、スペースや / を含まない合言葉にしてください'); return; }
-    try{ localStorage.setItem('qbt-sync', c); }catch(e){}
-    uid=c; attach();
+    const SHARED='qbt-shared-7k2m9x4pw3';
+    let old=''; try{ old=localStorage.getItem('qbt-sync')||''; }catch(e){}
+    if(old && old!==SHARED){
+      // 以前の合言葉の記録を共通の保存先へ移す
+      setSync('記録を移しています…');
+      try{
+        for(const u of USERS){
+          const dn= u.k==='shu' ? 'timer' : 'timer-'+u.k;
+          const from=db.doc('data/users/'+old+'/'+dn), to=db.doc('data/users/'+SHARED+'/'+dn);
+          const [fs, fd, td]=await Promise.all([from.get(), from.collection('days').get(), to.collection('days').get()]);
+          const have={}; td.docs.forEach(x=>{ have[x.id]=x.data(); });
+          for(const x of fd.docs){ const v=x.data(), h=have[x.id];
+            if(!h || (v.solved||0)>(h.solved||0)) await to.collection('days').doc(x.id).set(Object.assign({}, v, {date:x.id})); }
+          if(fs.exists){ const ts=await to.get(); if(!ts.exists) await to.set(fs.data()); }
+        }
+        try{ localStorage.removeItem('qbt-sync'); }catch(e){}
+      }catch(e){ console.warn(e); }
+    }
+    uid=SHARED; attach();
   }
 
   // ---------- timer ----------
