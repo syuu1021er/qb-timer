@@ -124,6 +124,7 @@ body{background:color-mix(in srgb, var(--who) 14%, var(--bg)); border-top:6px so
 .stats{display:flex; flex-wrap:wrap; gap:4px 18px; font-size:13px; color:var(--muted); align-items:baseline}
 .stats b{font-family:var(--font-num); color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums}
 .stats .big b{font-size:18px}
+.stats small{font-size:12px; margin-left:4px}
 .stats .o b{color:var(--over)}
 .sync{margin-left:auto; font-size:12px; color:var(--muted)}
 .sync.ok::before{content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--review); margin-right:6px; vertical-align:1px}
@@ -223,6 +224,7 @@ dialog::backdrop{background:rgba(10,16,24,.45)}
     <span>今日の解説平均 <b id="sAvgR">--:--</b></span>
     <span>今日の1問あたり <b id="sAvgT">--:--</b></span>
     <span class="big">1時間で <b id="sPerH">--</b> 問ペース</span>
+    <span class="big" id="by22" hidden>22時まであと <b id="s22">--</b> 問<small id="s22t"></small></span>
     <span class="o">解く時間オーバー <b id="sOver">0</b></span>
     <span class="sync" id="sync">この端末に保存</span>
   </div>
@@ -288,6 +290,7 @@ window.__fbReady = (async () => {
 <li><b>この回</b>：ページを開いてから（または「この回をリセット」してから）の問題数と時間。</li>
 <li><b>今日の解く平均・解説平均</b>：その日に解いた全問題の平均。</li>
 <li><b>今日の1問あたり</b>：解く平均＋解説平均。1問を解いて解説まで読むのにかかる時間です。</li>
+<li><b>22時まであと ○問</b>：14時〜22時のあいだだけ出ます。今日の1問あたりの時間で22時まで続けたら、あと何問解けるかの予測と、そのときの今日の合計です。</li>
 <li><b>1時間で ○問ペース</b>：今日の1問あたりの時間で1時間続けたら何問進むかの予測（60分 ÷ 1問あたり）。</li>
 <li><b>解く時間オーバー</b>：この回で目標時間を超えた問題の数。</li>
 <li>下の小さな箱は1問ごとの「解く／解説」の時間、棒グラフは直近14日の問題数です（棒にカーソルを合わせると演習時間も出ます）。</li>
@@ -502,6 +505,14 @@ window.__fbReady = (async () => {
     const per = tv.solved && tv.reviewed ? (tv.solveSec||0)/tv.solved + (tv.reviewSec||0)/tv.reviewed : 0;
     $('sAvgT').textContent= per ? fmt(per) : '--:--';
     $('sPerH').textContent= per ? (3600/per).toFixed(1).replace(/\.0$/,'') : '--';
+    const nw=new Date(), end=new Date(nw); end.setHours(22,0,0,0);
+    const left=(end-nw)/1000, show=nw.getHours()>=14 && left>0;
+    $('by22').hidden=!show;
+    if(show){
+      const more= per ? Math.floor(left/per) : null;
+      $('s22').textContent= more==null ? '--' : more;
+      $('s22t').textContent= more==null ? '（残り '+fmtHM(left)+'）' : '（残り '+fmtHM(left)+'・今日の合計 '+((tv.solved||0)+more)+' 問）';
+    }
     box.innerHTML='<span class="dl">直近14日</span>'+items.map(x=>{
       const v=days[x.k]; const tip=(x.d.getMonth()+1)+'/'+x.d.getDate()+' '+x.n+'問'+(v&&v.solved?'・演習 '+fmtHM((v.solveSec||0)+(v.reviewSec||0))+'（解く '+fmtHM(v.solveSec)+'・解説 '+fmtHM(v.reviewSec)+'）':'');
       return '<div class="day'+(x.today?' today':'')+'" title="'+tip+'"><b>'+x.n+'</b><i style="height:'+Math.round(4+28*x.n/max)+'px"></i><small>'+(x.d.getMonth()+1)+'/'+x.d.getDate()+'</small></div>';
